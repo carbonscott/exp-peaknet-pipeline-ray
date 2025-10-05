@@ -29,7 +29,7 @@ model:
 
       # Other settings
       from_scratch: false
-  warmup_iterations: 100
+  warmup_iterations: 10
 
 runtime:
   max_actors: 4           # Multi-GPU profiling
@@ -38,6 +38,7 @@ runtime:
   total_samples: null     # null = continuous processing until stream ends (recommended for socket sources)
                           # Set to positive integer for finite processing (e.g., 20480 for testing)
   inter_batch_delay: 0.01 # Moderate streaming rate
+  memory_sync_interval: 0  # ADD THIS LINE (0=disable, 100=sync every 100 batches)
   queue_num_shards: 8
   queue_maxsize_per_shard: 1600
   # Coordination timing to eliminate pipeline gaps
