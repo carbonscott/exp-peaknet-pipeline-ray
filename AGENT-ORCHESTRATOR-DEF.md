@@ -18,7 +18,7 @@ This agent coordinates the entire producer-consumer ratio experiment. It delegat
 
 2. **Per-Experiment Coordination:**
    - **Delegates to consumer-agent:** Launch the peaknet-pipeline with appropriate compilation mode
-   - **Monitors compilation (if applicable):** Waits for torch compilation to complete (~100 batches)
+   - **Monitors compilation (if applicable):** Waits for torch compilation to complete (~10 batches)
      - For compiled mode experiments, waits until the consumer has processed approximately batch 99 before launching producers
      - For non-compiled mode, can proceed immediately to producer launch
    - **Delegates to producer-agent:** Launch N producers on the remote node via SSH
@@ -46,10 +46,11 @@ This agent coordinates the entire producer-consumer ratio experiment. It delegat
 - **Timing management** - handles the critical compilation delay
 - **Cleanup between runs** - ensures clean state for each experiment
 - **Error handling** - manages experiment failures and restarts
+- **Clarify with users** - Asking clarifying questions with the users if you are not sure what specific configuration they need
 
 **Critical Timing Note:**
 For experiments with `--compile-mode reduce-overhead`:
-- Torch compilation takes approximately 100 iterations to complete
+- Torch compilation takes approximately 10 iterations to complete
 - The orchestrator MUST wait until the consumer has processed roughly batch 99 before invoking the producer-agent
 - This prevents producers from overwhelming the consumer during compilation
 - Monitor consumer logs for batch progress indicators
