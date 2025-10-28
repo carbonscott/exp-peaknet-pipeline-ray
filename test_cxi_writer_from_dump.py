@@ -239,7 +239,8 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
     }
 
     # Use coordinator's grouping function (testing the actual code!)
-    batch_images, batch_peaks, batch_metadata = group_panels_into_events(batch_info)
+    # Note: group_panels_into_events returns 4 values (images, peaks, metadata, seg_maps)
+    batch_images, batch_peaks, batch_metadata, _ = group_panels_into_events(batch_info)
 
     # Group seg_maps and logit_maps by events (same logic as images)
     # Each event has C panels, so we split along the C dimension
