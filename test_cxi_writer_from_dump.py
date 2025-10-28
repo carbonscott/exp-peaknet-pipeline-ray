@@ -153,14 +153,29 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
     detector_images_4d = reconstruct_detector_image(original_image, original_shape, preprocessed_shape)
     logging.info(f"  Reconstructed shape: {detector_images_4d.shape} (B, C, H_orig, W_orig)")
 
-    # Step 2: Run peak finding on logits
-    logging.info("\nStep 2: Running peak finding...")
+    # Step 2: Run peak finding on logits and compute seg_maps
+    logging.info("\nStep 2: Running peak finding and computing seg_maps...")
     all_peaks = []
+    all_seg_maps = []  # Store seg maps for each panel
+    all_logit_maps = []  # Store logit maps for each panel
     _, _, H_padded, W_padded = preprocessed_shape  # 512, 512
 
     for panel_idx in range(logits.shape[0]):  # Iterate over B*C panels
         panel_logits = logits[panel_idx]  # (2, H, W)
         peaks = find_peaks_numpy(panel_logits)  # (N, 3) in preprocessed coordinates
+
+        # Compute seg_map from logits
+        probs = np.exp(panel_logits) / np.exp(panel_logits).sum(axis=0, keepdims=True)
+        seg_map = np.argmax(probs, axis=0).astype(np.uint8)  # (H, W) with values 0 or 1
+
+        # Clip seg_map to original bounds (bottom-right padding)
+        seg_map_clipped = seg_map[:H_orig, :W_orig]  # (H_orig, W_orig)
+
+        # Clip logits to original bounds
+        logits_clipped = panel_logits[:, :H_orig, :W_orig]  # (2, H_orig, W_orig)
+
+        all_seg_maps.append(seg_map_clipped)
+        all_logit_maps.append(logits_clipped)
 
         # Transform peak coordinates from preprocessed space to original space
         # Preprocessed: (512, 512), Original: (352, 384)
@@ -182,6 +197,18 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
 
     logging.info(f"  Total panels processed: {len(all_peaks)}")
     logging.info(f"  Total peaks found: {sum(len(p) for p in all_peaks)}")
+
+    # Reshape seg_maps and logit_maps to group by events
+    # all_seg_maps: list of (H_orig, W_orig) arrays for B*C panels
+    # all_logit_maps: list of (2, H_orig, W_orig) arrays for B*C panels
+    # Reshape to (B, C, H_orig, W_orig) and (B, C, 2, H_orig, W_orig) respectively
+    seg_maps_4d = np.array(all_seg_maps).reshape(B, C, H_orig, W_orig)  # (B, C, H, W)
+    logit_maps_5d = np.array(all_logit_maps).reshape(B, C, 2, H_orig, W_orig)  # (B, C, 2, H, W)
+    # Transpose to (B, 2, C, H, W) so num_classes is the second dimension
+    logit_maps_5d = np.transpose(logit_maps_5d, (0, 2, 1, 3, 4))  # (B, 2, C, H, W)
+
+    logging.info(f"  Seg maps shape: {seg_maps_4d.shape} (B, C, H_orig, W_orig)")
+    logging.info(f"  Logit maps shape: {logit_maps_5d.shape} (B, num_classes, C, H_orig, W_orig)")
 
     # Step 3: Group panels into events and prepare for CXI writing
     logging.info("\nStep 3: Grouping panels into events...")
@@ -214,6 +241,17 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
     # Use coordinator's grouping function (testing the actual code!)
     batch_images, batch_peaks, batch_metadata = group_panels_into_events(batch_info)
 
+    # Group seg_maps and logit_maps by events (same logic as images)
+    # Each event has C panels, so we split along the C dimension
+    batch_seg_maps = []
+    batch_logit_maps = []
+    for event_idx in range(B):
+        # For each event, extract its C panels
+        event_seg_map = seg_maps_4d[event_idx]  # (C, H, W)
+        event_logit_map = logit_maps_5d[event_idx]  # (2, C, H, W)
+        batch_seg_maps.append(event_seg_map)
+        batch_logit_maps.append(event_logit_map)
+
     if verbose:
         for event_idx, (img, peaks, meta) in enumerate(zip(batch_images, batch_peaks, batch_metadata)):
             if peaks:
@@ -225,7 +263,7 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
                 logging.debug(f"  Event {event_idx}: shape {img.shape}, 0 total peaks")
 
     # Submit batch to file writer (Ray actor requires .remote())
-    file_writer.submit_processed_batch.remote(batch_images, batch_peaks, batch_metadata)
+    file_writer.submit_processed_batch.remote(batch_images, batch_peaks, batch_metadata, batch_seg_maps, batch_logit_maps)
 
     logging.info(f"Submitted {B} events to file writer")
 
@@ -315,14 +353,16 @@ def main():
     # Initialize Ray for object store (needed for file_writer)
     ray.init(ignore_reinit_error=True)
 
-    # Create actor
+    # Create actor with debug outputs enabled
     file_writer = CXIFileWriterActor.remote(
         output_dir=str(output_dir),
         geom_file=args.geom_file,
         buffer_size=args.buffer_size,
         min_num_peak=args.min_num_peak,
         max_num_peak=args.max_num_peak,
-        file_prefix="test_cxi"
+        file_prefix="test_cxi",
+        save_segmentation_maps=True,  # Enable seg map output for debugging
+        save_logit_maps=True  # Enable logit map output for debugging
     )
 
     # Process batches
