@@ -187,7 +187,9 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
             _, y, x = peak
             # Clip to original bounds (bottom-right padding)
             if y < H_orig and x < W_orig:
-                peaks_transformed.append([0, y, x])
+                # Use actual panel index within event (0-15) for proper CheetahConverter transformation
+                actual_panel_idx = panel_idx % C
+                peaks_transformed.append([actual_panel_idx, y, x])
             # else: skip peaks outside original detector area
 
         all_peaks.append(np.array(peaks_transformed) if peaks_transformed else np.array([]).reshape(0, 3))
