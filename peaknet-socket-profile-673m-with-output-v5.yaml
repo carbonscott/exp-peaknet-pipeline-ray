@@ -1,0 +1,147 @@
+# PeakNet Pipeline Configuration with Socket Data Source + Q2 Output Queue
+# Configuration for continuous streaming from LCLStreamer WITH output queue enabled
+#
+# PROCESSING MODES:
+# - Continuous (total_samples: null): Process data until socket timeout or Ctrl+C
+# - Finite (total_samples: N): Process exactly N samples then stop
+#
+# OUTPUT QUEUE (Q2): ENABLED
+# This config enables the Q2 output queue for testing the full R→S→Q1→P→Q2→W pipeline
+#
+# NEW: Cheetah/CrystFEL Integration Support
+# - Includes detector_data_original_shape field for preprocessing metadata
+# - Enables detector image reconstruction in Q2→W stage
+# - Pairs with cxi_writer-v4.yaml for complete integration
+
+model:
+  weights_path: /sdf/data/lcls/ds/prj/prjcwang31/results/proj-stream-to-ml/peaknet-673m.bin  # PeakNet-673M pretrained weights
+
+  peaknet_config:
+    model:
+      # Basic model parameters
+      image_size: 512
+      num_channels: 1
+      num_classes: 2
+
+      # Backbone configuration (PeakNet-673M)
+      backbone_hidden_sizes: [352, 704, 1408, 2816]
+      backbone_depths: [3, 3, 27, 3]
+
+      # BiFPN configuration (PeakNet-673M)
+      bifpn_num_blocks: 4
+      bifpn_num_features: 512
+
+      # Segmentation head configuration
+      seg_out_channels: 256
+      uses_learned_upsample: true  # Required for PeakNet-673M pretrained weights
+
+      # Other settings
+      from_scratch: false
+  warmup_iterations: 10
+
+runtime:
+  max_actors: 4           # Multi-GPU profiling
+  batch_size: 128         # Reasonable for large images
+  pipeline_concurrency: 3 # NEW: N-way buffering (2=double/baseline, 3=triple/recommended, 4=quad)
+  total_samples: null     # null = continuous processing until stream ends (recommended for socket sources)
+                          # Set to positive integer for finite processing (e.g., 20480 for testing)
+  memory_sync_interval: 0 # 0=disable, 100=sync every 100 batches
+  queue_num_shards: 8
+  queue_maxsize_per_shard: 1600
+  # Queue naming configuration
+  queue_names:
+    input_queue: "peaknet_q1"   # Q1: Data producer → Inference actors
+    output_queue: "peaknet_q2"  # Q2: Inference actors → Post-processor
+  enable_output_queue: true  # ENABLE Q2 OUTPUT QUEUE (Q2→W stage)
+  # Coordination timing to eliminate pipeline gaps
+  max_empty_polls: 500    # Wait longer before coordinator check (reduces gaps)
+  poll_timeout: 0.001     # Faster polling for responsiveness (1ms)
+
+data:
+  shape: [1, 1920, 1920]  # Full resolution as requested (channels inferred from shape[0])
+
+# Data source configuration for socket streaming
+data_source:
+  source_type: socket     # "socket" = stream from LCLStreamer, "random" = generate synthetic data
+
+  # Multi-socket configuration (list of [hostname, port] pairs)
+  # Single socket example:
+  socket_addresses:
+    - ["sdfada016", 12321]
+    - ["sdfada016", 12322]
+
+  socket_timeout: 300.0        # Socket timeout: wait this long for data before assuming stream ended
+  socket_retry_attempts: 5    # Number of connection retry attempts
+
+  # Serialization format
+  serialization_format: numpy  # "numpy" for fast .npz format (recommended), "hdf5" for legacy format
+
+  # Parsing location (NEW: for performance testing)
+  parse_location: producer    # "consumer" = parse in Q1→P (default, GPU overlap)
+                              # "producer" = parse in S→Q1 (alternative for testing)
+
+  # NumPy field mapping (must match lclstreamer NumpyBinarySerializer keys)
+  fields:
+    detector_data: "detector_data"                                    # Main image data from detector
+    timestamp: "timestamp"                                            # Event timestamp
+    photon_wavelength: "photon_wavelength"                            # Photon wavelength/energy
+    detector_data_original_shape: "detector_data_original_shape"      # NEW: Original shape for preprocessing metadata (B, C, H_orig, W_orig)
+                                                                      # REQUIRED for Cheetah/CrystFEL integration with detector image reconstruction
+
+  # Direct batch pass-through: trust pusher to provide appropriately sized batches
+  batch_assembly: false       # Disable artificial batch assembly - use pusher's batches directly
+  # batch_timeout: removed    # No timeout needed with direct pass-through
+
+  # Required fields for validation
+  required_fields: ["detector_data"]  # Fields that must be present in each .npz data packet
+
+# NEW: Mixed precision configuration for inference performance
+precision:
+  dtype: "bfloat16"         # Precision type: "float32", "bfloat16", "float16"
+                            # Autocast is automatically used for CUDA devices with bfloat16/float16
+
+system:
+  min_gpus: 1             # Minimum GPUs required
+  skip_gpu_validation: false
+  pin_memory: true        # Better GPU transfer performance
+  verify_actors: false     # Verify GPU health
+
+profiling:
+  enable_profiling: true # Disable for initial testing
+  output_dir: "./profiling_results"
+
+output:
+  output_dir: "./test_results"
+  verbose: true           # Detailed output for analysis
+  quiet: false
+
+# Ray cluster configuration
+ray:
+  namespace: "peaknet-pipeline"  # Named namespace for actor discovery and multi-deployment support
+
+# Additional notes:
+# 1. This config enables Q2 output queue for testing the full pipeline (R→S→Q1→P→Q2→W)
+# 2. Use with file_writer_example.py to consume and write inference results
+# 3. The socket_hostname should match the machine running LCLStreamer
+# 4. The fields mapping should match the LCLStreamer NumpyBinarySerializer output
+# 5. For testing, you can reduce total_samples to get faster feedback
+# 6. NumPy .npz format is 3-7x faster than HDF5 for parsing (eliminates bottleneck)
+#
+# WARMUP BEHAVIOR:
+# 7. Pipeline uses data.shape for immediate warmup, then waits for socket data
+# 8. The pipeline will BLOCK until actual socket data arrives (no infinite retry warnings)
+#
+# SERIALIZATION FORMAT:
+# 9. Use serialization_format: numpy with lclstreamer's NumpyBinarySerializer
+# 10. For legacy HDF5 streams, set serialization_format: hdf5 and use hierarchical paths
+#
+# PARSING LOCATION (NEW):
+# 11. parse_location: consumer (default) - Parse in actor during GPU overlap (Q1→P stage)
+# 12. parse_location: producer - Parse in producer before queueing (S→Q1 stage)
+# 13. Test both modes to compare throughput and determine optimal strategy for your workload
+#
+# Example usage:
+# peaknet-pipeline --config examples/configs/peaknet-socket-profile-673m-with-output.yaml --verbose
+#
+# Or override from command line:
+# peaknet-pipeline --config examples/configs/peaknet-socket-profile-673m.yaml --enable-output-queue --verbose
