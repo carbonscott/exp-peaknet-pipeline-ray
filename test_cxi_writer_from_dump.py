@@ -17,6 +17,7 @@ import h5py
 import numpy as np
 from pathlib import Path
 from scipy import ndimage
+import ray
 
 # Add cxi-pipeline-ray to path
 sys.path.insert(0, '/sdf/data/lcls/ds/prj/prjcwang31/results/codes/cxi-pipeline-ray')
@@ -266,9 +267,10 @@ def process_batch(batch_group, batch_idx: int, file_writer, verbose: bool = Fals
                 logging.debug(f"  Event {event_idx}: shape {img.shape}, 0 total peaks")
 
     # Submit batch to file writer (Ray actor requires .remote())
-    file_writer.submit_processed_batch.remote(batch_images, batch_peaks, batch_metadata, batch_seg_maps, batch_logit_maps)
+    # SYNCHRONOUS: Wait for batch to complete before processing next batch
+    ray.get(file_writer.submit_processed_batch.remote(batch_images, batch_peaks, batch_metadata, batch_seg_maps, batch_logit_maps))
 
-    logging.info(f"Submitted {B} events to file writer")
+    logging.info(f"Batch {batch_idx} submitted and processed synchronously - {B} events completed")
 
 
 def main():
@@ -351,7 +353,6 @@ def main():
 
     # For now, let's create a simple inline version
     from datetime import datetime
-    import ray
 
     # Initialize Ray for object store (needed for file_writer)
     ray.init(ignore_reinit_error=True)
