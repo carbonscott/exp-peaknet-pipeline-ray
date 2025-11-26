@@ -12,6 +12,12 @@ def _():
 
 @app.cell
 def _():
+    import os
+    return (os,)
+
+
+@app.cell
+def _():
     import h5py
     import numpy as np
     from bokeh.plotting import figure
@@ -65,7 +71,7 @@ def _():
                 y_axis_label="Y (pixels)",
                 tools="pan,box_zoom,wheel_zoom,reset,save",
                 width=800,
-                height=800,
+                height=1600,
                 match_aspect=True,
             )
 
@@ -113,8 +119,18 @@ def _():
 
 
 @app.cell
-def _(mo):
-    cxi_path = "peaknet_673m_results/peaknet_cxi_20251030_160700_528651_chunk0004.cxi"
+def _(mo, os):
+    results_dir = "peaknet_673m_results"
+    cxi_files = sorted([f for f in os.listdir(results_dir) if f.endswith('.cxi')])
+
+    file_dropdown = mo.ui.dropdown(options=cxi_files, value=cxi_files[0], label="CXI File")
+    file_dropdown
+    return file_dropdown, results_dir
+
+
+@app.cell
+def _(file_dropdown, mo, os, results_dir):
+    cxi_path = os.path.join(results_dir, file_dropdown.value)
 
     idx = mo.ui.slider(
         start=0,           # minimum value
