@@ -1,0 +1,34 @@
+# CXI Writer Configuration
+# Consumes from Q2 queue produced by peaknet pipeline
+
+ray:
+  namespace: "peaknet-pipeline"
+
+queue:
+  name: "peaknet_q2"
+  num_shards: 8
+  maxsize_per_shard: 1600
+  poll_timeout: 0.01
+
+processing:
+  num_cpu_workers: 32
+  max_pending_tasks: 100
+
+peak_finding:
+  min_num_peak: 10
+  max_num_peak: 2048
+  connectivity: 8
+
+geometry:
+  geom_file: null
+
+output:
+  output_dir: "./cxi_output"
+  file_prefix: "mfxl1038923-r0278"
+  buffer_size: 32
+  create_output_dir: true
+
+system:
+  log_level: "INFO"
+  log_file: null
+  progress_interval: 50

@@ -1,0 +1,40 @@
+source_identifier: "exp=mfxl1038923:run=278"
+skip_incomplete_events: false
+
+event_source:
+    type: Psana1EventSource
+
+data_sources:
+    timestamp:
+        type: Psana1Timestamp
+
+    detector_data:
+        type: Psana1DetectorInterface
+        psana_name: epix10k2M
+        psana_fields: image
+
+processing_pipeline:
+    type: PeaknetPreprocessingPipeline
+    batch_size: 8
+    target_height: 1696
+    target_width: 1696
+    pad_style: bottom-right
+    add_channel_dim: true
+    merge_batch_and_channel: true
+    apply_normalization: true
+    norm_eps: 1e-5
+    norm_check_nan: true
+    norm_scale_variance: true
+
+data_serializer:
+    type: NumpyBinarySerializer
+    use_compression: true
+
+data_handlers:
+    - type: BinaryDataStreamingDataHandler
+      urls:
+          - "tcp://CONSUMER_NODE:12321"
+          - "tcp://CONSUMER_NODE:12322"
+      role: client
+      library: zmq
+      socket_type: push
