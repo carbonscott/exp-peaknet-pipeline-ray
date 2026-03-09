@@ -33,13 +33,12 @@ def setup_logging(level: str = 'INFO'):
     )
 
 
-def find_peaks_numpy(logits_2d: np.ndarray, min_prob: float = 0.5, return_seg_map: bool = False):
+def find_peaks_numpy(logits_2d: np.ndarray, return_seg_map: bool = False):
     """
     Find peaks from 2-class logits using scipy.ndimage.label.
 
     Args:
         logits_2d: (2, H, W) logits from model
-        min_prob: Minimum probability threshold
         return_seg_map: If True, return (peaks, seg_map) tuple
 
     Returns:
@@ -47,15 +46,10 @@ def find_peaks_numpy(logits_2d: np.ndarray, min_prob: float = 0.5, return_seg_ma
         OR
         (peaks, seg_map): If return_seg_map=True, where seg_map is (H, W) uint8 with values 0 or 1
     """
-    # Convert logits to probability: softmax then argmax
-    probs = np.exp(logits_2d) / np.exp(logits_2d).sum(axis=0, keepdims=True)
-    seg_map = np.argmax(probs, axis=0)  # (H, W) with values 0 or 1
+    # Binary segmentation via argmax (class 0=background, class 1=peak)
+    seg_map = np.argmax(logits_2d, axis=0)  # (H, W) with values 0 or 1
 
-    # Get peak probability map (class 1)
-    peak_prob = probs[1]  # (H, W)
-
-    # Threshold
-    peak_mask = (seg_map == 1) & (peak_prob >= min_prob)
+    peak_mask = (seg_map == 1)
 
     # Find connected components (8-connectivity)
     structure = np.ones((3, 3), dtype=np.float32)
