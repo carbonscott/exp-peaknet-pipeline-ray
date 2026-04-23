@@ -14,6 +14,8 @@
 #   sbatch run-demo.sbatch
 #   NUM_PRODUCERS=16 sbatch run-demo.sbatch
 #   COMPILE_MODE=reduce-overhead sbatch run-demo.sbatch
+#   NEVENTS=16 sbatch run-demo.sbatch   # short smoke test (must divide batch_size=8)
+#   CXI_PIPELINE_RAY_LOCAL="" sbatch run-demo.sbatch   # disable bind-mount override
 #===============================================================================
 
 # === Job-wide settings ===
@@ -48,6 +50,19 @@ RUN=${RUN:-"r0278"}
 
 # Path to lclstreamer installation (must have pixi installed)
 LCLSTREAMER_DIR=${LCLSTREAMER_DIR:-"/sdf/data/lcls/ds/prj/prjcwang31/results/software/lclstreamer"}
+
+# Event cap for short validation runs. Empty => full run. Set e.g. NEVENTS=16
+# for a quick smoke test (must be divisible by lclstreamer.yaml batch_size: 8).
+# Plumbed to `lclstreamer --num-events ${NEVENTS}` below.
+NEVENTS=${NEVENTS:-}
+
+# Bind-mount override for cxi-pipeline-ray. When non-empty, the consumer's
+# apptainer exec binds this host path over the container's site-packages copy,
+# picking up live edits (e.g. feat/fix-bottleneck) without rebuilding the .sif.
+# Tech debt: once PR #5 on carbonscott/cxi-pipeline-ray is merged and the
+# consumer.sif is rebuilt, clear this override to return to the baked-in path.
+CXI_PIPELINE_RAY_LOCAL=${CXI_PIPELINE_RAY_LOCAL:-"/sdf/data/lcls/ds/prj/prjcwang31/results/codes/cxi-pipeline-ray/cxi_pipeline_ray"}
+CXI_PIPELINE_RAY_SITE=${CXI_PIPELINE_RAY_SITE:-"/usr/local/lib/python3.12/dist-packages/cxi_pipeline_ray"}
 
 #===============================================================================
 # Derived paths
@@ -184,10 +199,22 @@ echo "$(date): Launching consumer on ${CONSUMER_NODE} (containerized)..."
 
 # Run everything inside a SINGLE apptainer exec to avoid squashfuse mount teardown
 # between invocations (Ray daemon processes lose their filesystem if the mount dies).
+#
+# Bind-mount override: if CXI_PIPELINE_RAY_LOCAL is set and its path exists,
+# mount it over the container's site-packages copy. Tech debt — see the
+# CXI_PIPELINE_RAY_LOCAL definition near the top of this script. Remove the
+# override once PR #5 (feat/fix-bottleneck) is merged and consumer.sif is
+# rebuilt to pick up the fix natively.
+CXI_PKG_BIND=""
+if [ -n "${CXI_PIPELINE_RAY_LOCAL}" ] && [ -d "${CXI_PIPELINE_RAY_LOCAL}" ]; then
+    CXI_PKG_BIND="--bind ${CXI_PIPELINE_RAY_LOCAL}:${CXI_PIPELINE_RAY_SITE}"
+    echo "$(date): Bind-mounting ${CXI_PIPELINE_RAY_LOCAL} -> ${CXI_PIPELINE_RAY_SITE} (tech debt, remove after container rebuild)"
+fi
+
 srun --het-group=1 --ntasks=1 --overlap \
     env APPTAINERENV_RAY_TMPDIR=/tmp APPTAINERENV_TMPDIR=/tmp \
     CUDA_VISIBLE_DEVICES="${GPU_IDS}" \
-    apptainer exec --nv --bind /sdf "${SIF}" \
+    apptainer exec --nv --bind /sdf ${CXI_PKG_BIND} "${SIF}" \
     bash -c '
 set -euo pipefail
 
@@ -304,6 +331,13 @@ echo "$(date): Producer wrapper starting on $(hostname)"
 echo "  RUN_DIR:         ${RUN_DIR}"
 echo "  NUM_PRODUCERS:   ${NUM_PRODUCERS}"
 echo "  LCLSTREAMER_DIR: ${LCLSTREAMER_DIR}"
+echo "  NEVENTS:         ${NEVENTS:-<unlimited>}"
+
+# Build the lclstreamer event-cap flag conditionally. Empty NEVENTS => no cap.
+NUM_EVENTS_FLAG=""
+if [ -n "${NEVENTS}" ]; then
+    NUM_EVENTS_FLAG="--num-events ${NEVENTS}"
+fi
 
 cleanup() {
     echo "$(date): Producer cleanup — terminating children..."
@@ -320,7 +354,7 @@ while true; do
 
     pixi run --environment psana1 \
         mpirun -n "${NUM_PRODUCERS}" \
-        lclstreamer --config "${RUN_DIR}/lclstreamer.yaml"
+        lclstreamer --config "${RUN_DIR}/lclstreamer.yaml" ${NUM_EVENTS_FLAG}
     EXIT_CODE=$?
 
     if [ ${EXIT_CODE} -eq 0 ]; then

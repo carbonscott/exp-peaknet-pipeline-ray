@@ -11,7 +11,13 @@ queue:
   poll_timeout: 0.01
 
 processing:
-  num_cpu_workers: 32
+  # num_cpu_workers: Axis-1 peak-finding parallelism inside the coordinator.
+  # Value backed by docs/benchmarks/summary.md on feat/fix-bottleneck of
+  # carbonscott/cxi-pipeline-ray (PR #5). Effective ceiling is
+  # min(K, num_panels); current pipeline produces 4 panels per batch
+  # (B=1, C=4), so 4 is the observed optimum on sdfada002 (96 CPUs).
+  # Setting K>4 reserves CPUs without adding throughput.
+  num_cpu_workers: 4
   max_pending_tasks: 100
 
 peak_finding:
