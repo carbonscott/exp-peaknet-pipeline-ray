@@ -82,7 +82,7 @@ peak_finding:
 # Geometry and Coordinate Conversion
 # ============================================================
 geometry:
-  geom_file: geom/epixk10a2m_mfx100903824.geom.stream                 # Path to CrystFEL geometry file for CheetahConverter
+  geom_file: geom/mfxl1047723.geom.stream                 # Path to CrystFEL geometry file for CheetahConverter
                                   # Set to null to skip coordinate conversion
                                   # Example: /sdf/data/lcls/ds/prj/prjcwang31/results/geometry/cxi_detector.geom
                                   #
@@ -95,7 +95,7 @@ geometry:
 # ============================================================
 output:
   output_dir: "/sdf/data/lcls/ds/prj/prjcwang31/results/proj-stream-to-ml/peaknet_673m_results"
-  file_prefix: "peaknet_cxi"      # Filename prefix
+  file_prefix: "mfxl1047723"      # Filename prefix
   buffer_size: 32                # Events to buffer before writing CXI file
   create_output_dir: true         # Auto-create output directory
 

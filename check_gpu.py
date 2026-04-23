@@ -1,3 +1,10 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "torch",
+#     "numpy",
+# ]
+# ///
 #!/usr/bin/env python3
 
 import torch

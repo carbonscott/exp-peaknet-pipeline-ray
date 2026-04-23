@@ -41,7 +41,7 @@ model:
 
 runtime:
   max_actors: 4           # Multi-GPU profiling
-  batch_size: 128         # Reasonable for large images
+  batch_size: 8           # Must match lclstreamer's PeaknetPreprocessingPipeline batch_size
   pipeline_concurrency: 3 # NEW: N-way buffering (2=double/baseline, 3=triple/recommended, 4=quad)
   total_samples: null     # null = continuous processing until stream ends (recommended for socket sources)
                           # Set to positive integer for finite processing (e.g., 20480 for testing)
@@ -67,17 +67,17 @@ data_source:
   # Multi-socket configuration (list of [hostname, port] pairs)
   # Single socket example:
   socket_addresses:
-    - ["sdfada016", 12321]
-    - ["sdfada016", 12322]
+    - ["sdfada014", 12321]
+    - ["sdfada014", 12322]
 
   socket_timeout: 300.0        # Socket timeout: wait this long for data before assuming stream ended
   socket_retry_attempts: 5    # Number of connection retry attempts
 
-  # Serialization format
-  serialization_format: numpy  # "numpy" for fast .npz format (recommended), "hdf5" for legacy format
+  ## # Serialization format
+  ## serialization_format: numpy  # "numpy" for fast .npz format (recommended), "hdf5" for legacy format
 
-  # Parsing location (NEW: for performance testing)
-  parse_location: producer    # "consumer" = parse in Q1→P (default, GPU overlap)
+  ## # Parsing location (NEW: for performance testing)
+  ## parse_location: producer    # "consumer" = parse in Q1→P (default, GPU overlap)
                               # "producer" = parse in S→Q1 (alternative for testing)
 
   # NumPy field mapping (must match lclstreamer NumpyBinarySerializer keys)

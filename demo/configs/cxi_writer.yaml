@@ -11,8 +11,11 @@ queue:
   poll_timeout: 0.01
 
 processing:
-  num_cpu_workers: 32
-  max_pending_tasks: 100
+  # K=1 runs peak finding sequentially (pre-Axis-1 baseline).
+  # K>1 fans out one Ray task per panel (num_panels = B*C = 4 for this demo).
+  # The value above 1 is currently only a gate — it doesn't bound concurrency
+  # (see issue #6). Just set it to any value >1 to enable the fan-out.
+  num_cpu_workers: 4
 
 peak_finding:
   min_num_peak: 10

@@ -1,18 +1,20 @@
 import marimo
 
-__generated_with = "0.18.1"
+__generated_with = "0.20.4"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _():
     import os
+
     return (os,)
 
 
@@ -71,7 +73,7 @@ def _():
                 y_axis_label="Y (pixels)",
                 tools="pan,box_zoom,wheel_zoom,reset,save",
                 width=800,
-                height=1600,
+                height=800,
                 match_aspect=True,
             )
 
@@ -115,12 +117,15 @@ def _():
             figures.append(p4)
 
         return row(*figures)
+
     return (visualize_cxi_event_bokeh,)
 
 
 @app.cell
 def _(mo, os):
-    results_dir = "peaknet_673m_results"
+    # results_dir = "peaknet_673m_results"
+    # results_dir = "peaknet-mfxl1038923-r0278"
+    results_dir = "peaknet_673m_results/mfxl1038923-r0278"
     cxi_files = sorted([f for f in os.listdir(results_dir) if f.endswith('.cxi')])
 
     file_dropdown = mo.ui.dropdown(options=cxi_files, value=cxi_files[0], label="CXI File")
@@ -143,7 +148,7 @@ def _(file_dropdown, mo, os, results_dir):
     show_peaks=True
     output_path=None
     show=True
-    idx
+    idx, cxi_path
     return box_size, cxi_path, idx, show_peaks
 
 

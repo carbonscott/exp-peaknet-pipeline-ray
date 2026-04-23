@@ -1,10 +1,11 @@
 # Consumer Node Agent Configuration
 
 ## Node Information
-- **Node:** sdfada001
+- **Node:** sdfada014
 - **Working directory:** `/sdf/data/lcls/ds/prj/prjcwang31/results/proj-stream-to-ml`
-- **Environment activation:** `conda.torch`
-- **peaknet-pipeline config file:** `peaknet-socket-profile-673m.yaml`
+- **Environment activation:** `source /sdf/group/lcls/ds/ana/sw/conda1/manage/bin/psconda.sh && conda activate /sdf/scratch/users/c/cwang31/miniconda2/pytorch-2.6`
+- **peaknet-pipeline config file:** `peaknet-socket-profile-673m-with-output-v5.yaml`
+- **cxi-writer config file:** `cxi_writer-v3.yaml`
 
 ## Launch Command Templates
 
@@ -12,24 +13,24 @@
 
 **Non-compiled:**
 ```bash
-CUDA_VISIBLE_DEVICES=1 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 1 --verbose
+CUDA_VISIBLE_DEVICES=1 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 1 --verbose
 ```
 
 **Compiled:**
 ```bash
-CUDA_VISIBLE_DEVICES=1 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 1 --verbose --compile-mode reduce-overhead
+CUDA_VISIBLE_DEVICES=1 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 1 --verbose --compile-mode reduce-overhead
 ```
 
 ### Multiple GPU Configuration
 
 **Non-compiled:**
 ```bash
-CUDA_VISIBLE_DEVICES=<GPU_IDS> peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors <NUM_CONSUMERS> --verbose
+CUDA_VISIBLE_DEVICES=<GPU_IDS> peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors <NUM_CONSUMERS> --verbose
 ```
 
 **Compiled:**
 ```bash
-CUDA_VISIBLE_DEVICES=<GPU_IDS> peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors <NUM_CONSUMERS> --verbose --compile-mode reduce-overhead
+CUDA_VISIBLE_DEVICES=<GPU_IDS> peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors <NUM_CONSUMERS> --verbose --compile-mode reduce-overhead
 ```
 
 ## GPU Selection Guidelines
@@ -46,25 +47,25 @@ CUDA_VISIBLE_DEVICES=<GPU_IDS> peaknet-pipeline --config peaknet-socket-profile-
 
 #### Two GPU Setup (Preferred)
 ```bash
-CUDA_VISIBLE_DEVICES=0,1 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 2 --verbose
+CUDA_VISIBLE_DEVICES=0,1 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 2 --verbose
 ```
 Use this when GPUs 0 and 1 are both functioning properly.
 
 #### Two GPU Setup (Alternative)
 ```bash
-CUDA_VISIBLE_DEVICES=0,2 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 2 --verbose
+CUDA_VISIBLE_DEVICES=0,2 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 2 --verbose
 ```
 Use this when Device 1 has errors or is unavailable.
 
 #### Three GPU Setup (Preferred)
 ```bash
-CUDA_VISIBLE_DEVICES=0,1,2 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 3 --verbose
+CUDA_VISIBLE_DEVICES=0,1,2 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 3 --verbose
 ```
 Use this when GPUs 0, 1, and 2 are all functioning properly.
 
 #### Three GPU Setup (Alternative)
 ```bash
-CUDA_VISIBLE_DEVICES=0,2,3 peaknet-pipeline --config peaknet-socket-profile-673m.yaml --max-actors 3 --verbose
+CUDA_VISIBLE_DEVICES=0,2,3 peaknet-pipeline --config peaknet-socket-profile-673m-with-output-v5.yaml --max-actors 3 --verbose
 ```
 Use this when Device 1 has errors or is unavailable.
 
